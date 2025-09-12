@@ -4,6 +4,7 @@ from collections import Counter
 import uvicorn
 
 app = FastAPI()
+tasks_in_progress = 0
 
 class MapTask(BaseModel):
     job_id: str
@@ -12,8 +13,10 @@ class MapTask(BaseModel):
 
 @app.post("/map_task")
 async def map_task(task: MapTask):
-    words = task.data.lower().split()
+    global tasks_in_progress
+    tasks_in_progress += 1
 
+    words = task.data.lower().split()
     counts = dict(Counter(words))
 
     result = {
@@ -21,4 +24,10 @@ async def map_task(task: MapTask):
         "split_id": task.split_id,
         "results": counts
     }
+
+    tasks_in_progress -= 1
     return result
+
+@app.get("/status")
+async def status():
+    return {"tasks_in_progress": tasks_in_progress}

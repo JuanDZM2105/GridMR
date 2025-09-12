@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Dict, List
-import uvicorn
 
 app = FastAPI()
+tasks_in_progress = 0
 
 class ReduceTask(BaseModel):
     job_id: str
@@ -21,4 +21,8 @@ async def reduce_task(task: ReduceTask):
         "results": reduced
     }
     return result
+
+@app.get("/status")
+async def status():
+    return {"tasks_in_progress": tasks_in_progress}
 

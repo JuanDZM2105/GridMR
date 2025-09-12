@@ -1,14 +1,14 @@
 version: "3.9"
 
 services:
-  #maestro:
-  # build: ./maestro
-  #  container_name: maestro
-  #  ports:
-  #    - "8000:8000"
-  #  volumes:
-  #    - ./maestro:/app
-  #  command: uvicorn maestro:app --host 0.0.0.0 --port 8000 --reload
+  maestro:
+    build: ./maestro
+    container_name: maestro
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./maestro:/app
+    command: uvicorn maestro:app --host 0.0.0.0 --port 8000 --reload
 
   map1:
     build: ./workers
