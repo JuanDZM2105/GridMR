@@ -1,0 +1,26 @@
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import Dict, List
+import uvicorn
+
+app = FastAPI()
+
+class ReduceTask(BaseModel):
+    job_id: str
+    reduce_id: str
+    data: Dict[str, List[int]]  # { "palabra": [1,1,1,1,...] }
+
+@app.post("/reduce_task")
+async def reduce_task(task: ReduceTask):
+
+    reduced = {word: sum(values) for word, values in task.data.items()}
+
+    result = {
+        "job_id": task.job_id,
+        "reduce_id": task.reduce_id,
+        "results": reduced
+    }
+    return result
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8002)
