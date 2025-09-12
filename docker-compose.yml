@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  #maestro:
+  # build: ./maestro
+  #  container_name: maestro
+  #  ports:
+  #    - "8000:8000"
+  #  volumes:
+  #    - ./maestro:/app
+  #  command: uvicorn maestro:app --host 0.0.0.0 --port 8000 --reload
+
+  map1:
+    build: ./workers
+    container_name: map1
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./workers:/app
+    command: uvicorn map_worker:app --host 0.0.0.0 --port 8001 --reload
+
+  map2:
+    build: ./workers
+    container_name: map2
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./workers:/app
+    command: uvicorn map_worker:app --host 0.0.0.0 --port 8003 --reload
+
+  map3:
+    build: ./workers
+    container_name: map3
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./workers:/app
+    command: uvicorn map_worker:app --host 0.0.0.0 --port 8005 --reload
+
+  map4:
+    build: ./workers
+    container_name: map4
+    ports:
+      - "8007:8007"
+    volumes:
+      - ./workers:/app
+    command: uvicorn map_worker:app --host 0.0.0.0 --port 8007 --reload
+
+  reduce1:
+    build: ./workers
+    container_name: reduce1
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./workers:/app
+    command: uvicorn reduce_worker:app --host 0.0.0.0 --port 8002 --reload
+
+  reduce2:
+    build: ./workers
+    container_name: reduce2
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./workers:/app
+    command: uvicorn reduce_worker:app --host 0.0.0.0 --port 8004 --reload
