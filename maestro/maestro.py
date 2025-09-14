@@ -27,6 +27,8 @@ class JobRequest(BaseModel):
     data: str
     split_size: int = 100
     num_reducers: int = 1
+    map_function: str
+    reduce_function: str
 
 def split_text(text: str, size: int) -> List[str]:
     words = text.lower().split()
@@ -59,7 +61,8 @@ def submit_job(job: JobRequest):
         payload = {
             "job_id": job_id,
             "split_id": f"split_{i}",
-            "data": fragment
+            "data": fragment,
+            "map_function": job.map_function
         }
         try:
             resp = requests.post(f"{worker_url}/map_task", json=payload)
@@ -70,7 +73,7 @@ def submit_job(job: JobRequest):
             return {"error": f"Falló worker MAP {worker_url}: {e}"}
 
         for palabra, count in results.items():
-            intermedios.setdefault(palabra, []).extend([1] * count)
+            intermedios.setdefault(palabra, []).extend(count)
 
     final_results = {}
     palabras = list(intermedios.keys())
@@ -80,7 +83,8 @@ def submit_job(job: JobRequest):
         payload = {
             "job_id": job_id,
             "reduce_id": f"reduce_{i}",
-            "data": {palabra: intermedios[palabra]}
+            "data": {palabra: intermedios[palabra]},
+            "reduce_function": job.reduce_function
         }
         try:
             resp = requests.post(f"{worker_url}/reduce_task", json=payload)
