@@ -2,7 +2,7 @@ import requests
 
 MAESTRO_URL = "http://localhost:8000"
 
-def submit_job(data: str):
+def submit_job(data: str, split_size: int, num_reducers: int = 2):
     """
     Envía un job al maestro con funciones map y reduce incluidas.
     El maestro genera el job_id automáticamente.
@@ -16,14 +16,14 @@ def map_fn(line):
 def reduce_fn(key, values):
     return (key, sum(values))
         """,
-        "split_size": 100,
-        "num_reducers": 2,
+        "split_size": split_size,
+        "num_reducers": num_reducers,
         "data": data
     }
 
     r = requests.post(f"{MAESTRO_URL}/submit_job", json=job)
     r.raise_for_status()
-    return r.json()  # <- aquí el maestro devuelve {"job_id": "...", "status": "received"}
+    return r.json() 
 
 def get_status(job_id: str):
     """

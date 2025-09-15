@@ -3,6 +3,9 @@ from pydantic import BaseModel
 from typing import Dict, List
 import requests
 import uuid
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="GridMR Maestro")
 
@@ -53,13 +56,16 @@ def get_least_loaded_worker(workers: List[str]) -> str:
 def process_job(job_id: str, job: JobRequest):
     try:
         job_states[job_id] = "RUNNING"
+        logging.info(f"[{job_id}] Iniciando job con split_size={job.split_size}, num_reducers={job.num_reducers}")
 
         # 1. Dividir en splits
         splits = split_text(job.data, job.split_size)
+        logging.info(f"[{job_id}] Se generaron {len(splits)} splits")
         intermedios: Dict[str, List[int]] = {}
 
         # 2. Mandar a workers MAP
         for i, fragment in enumerate(splits):
+            logging.info(f"[{job_id}] Enviando split {i} a MAP worker")
             worker_url = get_least_loaded_worker(MAP_WORKERS)
             payload = {
                 "job_id": job_id,
@@ -83,14 +89,24 @@ def process_job(job_id: str, job: JobRequest):
         final_results = {}
         palabras = list(intermedios.keys())
 
-        for i, palabra in enumerate(palabras):
+        chunks = [palabras[i::job.num_reducers] for i in range(job.num_reducers)]
+
+        for i, chunk in enumerate(chunks):
+            logging.info(f"[{job_id}] Reducer {i} recibió {len(chunk)} claves: {chunk}")
+            if not chunk:  # puede haber un lote vacío si hay más reducers que claves
+                continue
             worker_url = get_least_loaded_worker(REDUCE_WORKERS)
+
+            # juntar todas las claves de este chunk
+            data_chunk = {palabra: intermedios[palabra] for palabra in chunk}
+
             payload = {
                 "job_id": job_id,
                 "reduce_id": f"reduce_{i}",
-                "data": {palabra: intermedios[palabra]},
+                "data": data_chunk,
                 "reduce_function": job.reduce_function
             }
+
             try:
                 resp = requests.post(f"{worker_url}/reduce_task", json=payload)
                 resp.raise_for_status()
