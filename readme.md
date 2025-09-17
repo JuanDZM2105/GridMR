@@ -1,3 +1,5 @@
+##### Video explicativo: https://eafit-my.sharepoint.com/:v:/g/personal/jmmunozg1_eafit_edu_co/ETGbk0zOKmVImVd0glsTcCkBGTGNrS3PZMkdh3UyNvtfdw?nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJPbmVEcml2ZUZvckJ1c2luZXNzIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXciLCJyZWZlcnJhbFZpZXciOiJNeUZpbGVzTGlua0NvcHkifX0&e=UcmkZ7
+
 # GridMR  
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)  
@@ -136,3 +138,4 @@ Output:
 
 Juan David Zapata Moncada (jdzapatam@eafit.edu.co)  
 Juan Miguel Muñoz García (jmmunozg1@eafit.edu.co)
+
