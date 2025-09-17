@@ -16,9 +16,6 @@ class MapTask(BaseModel):
 async def map_task(task: MapTask):
     global tasks_in_progress
     tasks_in_progress += 1
-
-    #words = task.data.lower().split()
-    #counts = dict(Counter(words))
     
     # Ejecutar la función enviada
     local_env = {}

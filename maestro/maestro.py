@@ -39,6 +39,7 @@ def split_text(text: str, size: int) -> List[str]:
 
 
 def get_least_loaded_worker(workers: List[str]) -> str:
+    """Escoge el worker menos cargado según /status."""
     min_load = float("inf")
     chosen_worker = None
     for w in workers:
@@ -53,6 +54,34 @@ def get_least_loaded_worker(workers: List[str]) -> str:
     return chosen_worker or workers[0]
 
 
+def send_with_retry(url: str, payload: dict, retries: int = 3, timeout: int = 5):
+    """Intenta enviar payload con reintentos."""
+    for attempt in range(retries):
+        try:
+            resp = requests.post(url, json=payload, timeout=timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            logging.warning(f"Intento {attempt+1}/{retries} falló al contactar {url}: {e}")
+            if attempt == retries - 1:
+                raise
+
+
+def assign_split_to_worker(payload: dict, workers: List[str], endpoint: str):
+    """Reasigna el split/reduce a otro worker si falla."""
+    tried = set()
+    while len(tried) < len(workers):
+        worker = get_least_loaded_worker(workers)
+        if worker in tried:
+            continue
+        try:
+            return send_with_retry(f"{worker}/{endpoint}", payload)
+        except Exception as e:
+            logging.error(f"Worker {worker} falló en {endpoint}: {e}")
+            tried.add(worker)
+    raise RuntimeError(f"No hay workers disponibles para {endpoint}")
+
+
 def process_job(job_id: str, job: JobRequest):
     try:
         job_states[job_id] = "RUNNING"
@@ -63,10 +92,9 @@ def process_job(job_id: str, job: JobRequest):
         logging.info(f"[{job_id}] Se generaron {len(splits)} splits")
         intermedios: Dict[str, List[int]] = {}
 
-        # 2. Mandar a workers MAP
+        # 2. Mandar a workers MAP con tolerancia a fallos
         for i, fragment in enumerate(splits):
             logging.info(f"[{job_id}] Enviando split {i} a MAP worker")
-            worker_url = get_least_loaded_worker(MAP_WORKERS)
             payload = {
                 "job_id": job_id,
                 "split_id": f"split_{i}",
@@ -74,31 +102,30 @@ def process_job(job_id: str, job: JobRequest):
                 "map_function": job.map_function,
             }
             try:
-                resp = requests.post(f"{worker_url}/map_task", json=payload)
-                resp.raise_for_status()
-                results = resp.json()["results"]
+                resp = assign_split_to_worker(payload, MAP_WORKERS, "map_task")
+                results = resp["results"]
             except Exception as e:
                 job_states[job_id] = "FAILED"
-                job_results[job_id] = {"error": f"Falló worker MAP {worker_url}: {e}"}
+                job_results[job_id] = {"error": f"Split {i} no pudo procesarse: {e}"}
                 return
 
             for palabra, count in results.items():
                 intermedios.setdefault(palabra, []).extend(count)
 
-        # 3. Reducir en workers REDUCE
+        # 3. Reducir en workers REDUCE con hashing (hash partitioner)
         final_results = {}
-        palabras = list(intermedios.keys())
+        reducer_assignments = {i: {} for i in range(job.num_reducers)}
 
-        chunks = [palabras[i::job.num_reducers] for i in range(job.num_reducers)]
+        # Distribuir cada palabra según hash
+        for palabra, valores in intermedios.items():
+            idx = hash(palabra) % job.num_reducers
+            reducer_assignments[idx][palabra] = valores
 
-        for i, chunk in enumerate(chunks):
-            logging.info(f"[{job_id}] Reducer {i} recibió {len(chunk)} claves: {chunk}")
-            if not chunk:  # puede haber un lote vacío si hay más reducers que claves
+        # Enviar cada grupo al Reducer correspondiente
+        for i, data_chunk in reducer_assignments.items():
+            logging.info(f"[{job_id}] Reducer {i} recibió {len(data_chunk)} claves")
+            if not data_chunk:
                 continue
-            worker_url = get_least_loaded_worker(REDUCE_WORKERS)
-
-            # juntar todas las claves de este chunk
-            data_chunk = {palabra: intermedios[palabra] for palabra in chunk}
 
             payload = {
                 "job_id": job_id,
@@ -108,17 +135,16 @@ def process_job(job_id: str, job: JobRequest):
             }
 
             try:
-                resp = requests.post(f"{worker_url}/reduce_task", json=payload)
-                resp.raise_for_status()
-                results = resp.json()["results"]
+                resp = assign_split_to_worker(payload, REDUCE_WORKERS, "reduce_task")
+                results = resp["results"]
             except Exception as e:
                 job_states[job_id] = "FAILED"
-                job_results[job_id] = {"error": f"Falló worker REDUCE {worker_url}: {e}"}
+                job_results[job_id] = {"error": f"Reduce {i} no pudo procesarse: {e}"}
                 return
 
             final_results.update(results)
 
-        # 4. Guardar resultado
+        # 4. Guardar resultado final
         job_results[job_id] = final_results
         job_states[job_id] = "DONE"
 

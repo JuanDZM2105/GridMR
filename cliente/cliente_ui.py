@@ -1,9 +1,9 @@
 import streamlit as st
 from cliente import submit_job, get_status, get_results
 
-st.set_page_config(page_title="Cliente GridMR", page_icon="🖥️")
+st.set_page_config(page_title="Cliente GridMR")
 
-st.title("🖥️ Cliente GridMR")
+st.title("Cliente GridMR")
 st.write("Sube un archivo de texto, elige parámetros y envíalo al Maestro.")
 
 # --- Parámetros del job ---
@@ -23,7 +23,7 @@ if st.button("Enviar Job"):
         except Exception as e:
             st.error(f"❌ Error al enviar job: {e}")
     else:
-        st.warning("⚠️ Debes subir un archivo .txt")
+        st.warning("Debes subir un archivo .txt")
 
 # --- Consultar estado ---
 if "job_id" in st.session_state and st.button("Consultar Estado"):

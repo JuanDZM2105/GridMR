@@ -9,10 +9,13 @@ class ReduceTask(BaseModel):
     job_id: str
     reduce_id: str
     data: Dict[str, List[int]]
-    reduce_function: str  # { "palabra": [1,1,1,1,...] }
+    reduce_function: str
 
 @app.post("/reduce_task")
 async def reduce_task(task: ReduceTask):
+    global tasks_in_progress
+    tasks_in_progress += 1  # Incrementa al iniciar la tarea
+
     local_env = {}
     exec(task.reduce_function, {}, local_env)
     reduce_fn = local_env["reduce_fn"]
@@ -21,6 +24,8 @@ async def reduce_task(task: ReduceTask):
     for key, values in task.data.items():
         k, v = reduce_fn(key, values)
         reduced[k] = v
+
+    tasks_in_progress -= 1
 
     return {
         "job_id": task.job_id,
@@ -31,4 +36,3 @@ async def reduce_task(task: ReduceTask):
 @app.get("/status")
 async def status():
     return {"tasks_in_progress": tasks_in_progress}
-
