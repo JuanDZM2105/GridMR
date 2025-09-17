@@ -63,3 +63,21 @@ services:
     volumes:
       - ./workers:/app
     command: uvicorn reduce_worker:app --host 0.0.0.0 --port 8004 --reload
+
+  reduce3:
+    build: ./workers
+    container_name: reduce3
+    ports:
+      - "8006:8006"
+    volumes:
+      - ./workers:/app
+    command: uvicorn reduce_worker:app --host 0.0.0.0 --port 8006 --reload
+
+  reduce4:
+    build: ./workers
+    container_name: reduce4
+    ports:
+      - "8008:8008"
+    volumes:
+      - ./workers:/app
+    command: uvicorn reduce_worker:app --host 0.0.0.0 --port 8008 --reload

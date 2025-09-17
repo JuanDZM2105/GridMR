@@ -18,7 +18,9 @@ MAP_WORKERS = [
 
 REDUCE_WORKERS = [
     "http://reduce1:8002",
-    "http://reduce2:8004"
+    "http://reduce2:8004",
+    "http://reduce3:8006",
+    "http://reduce4:8008"
 ]
 
 job_states: Dict[str, str] = {}
@@ -38,20 +40,35 @@ def split_text(text: str, size: int) -> List[str]:
     return [" ".join(words[i:i+size]) for i in range(0, len(words), size)]
 
 
-def get_least_loaded_worker(workers: List[str]) -> str:
-    """Escoge el worker menos cargado según /status."""
+last_chosen = {
+    "map": 0,
+    "reduce": 0
+}
+
+def get_least_loaded_worker(workers: List[str], kind: str) -> str:
+    """Escoge el worker menos cargado; si hay empate, rota entre ellos."""
     min_load = float("inf")
-    chosen_worker = None
+    candidates = []
+    
     for w in workers:
         try:
             resp = requests.get(f"{w}/status", timeout=1).json()
             load = resp.get("tasks_in_progress", 0)
             if load < min_load:
                 min_load = load
-                chosen_worker = w
+                candidates = [w]
+            elif load == min_load:
+                candidates.append(w)
         except Exception:
             continue
-    return chosen_worker or workers[0]
+
+    if not candidates:
+        return workers[0]
+
+    # Desempate con round-robin
+    idx = last_chosen[kind] % len(candidates)
+    last_chosen[kind] += 1
+    return candidates[idx]
 
 
 def send_with_retry(url: str, payload: dict, retries: int = 3, timeout: int = 5):
@@ -67,11 +84,11 @@ def send_with_retry(url: str, payload: dict, retries: int = 3, timeout: int = 5)
                 raise
 
 
-def assign_split_to_worker(payload: dict, workers: List[str], endpoint: str):
+def assign_split_to_worker(payload: dict, workers: List[str], endpoint: str, kind: str):
     """Reasigna el split/reduce a otro worker si falla."""
     tried = set()
     while len(tried) < len(workers):
-        worker = get_least_loaded_worker(workers)
+        worker = get_least_loaded_worker(workers, kind)
         if worker in tried:
             continue
         try:
@@ -102,7 +119,7 @@ def process_job(job_id: str, job: JobRequest):
                 "map_function": job.map_function,
             }
             try:
-                resp = assign_split_to_worker(payload, MAP_WORKERS, "map_task")
+                resp = assign_split_to_worker(payload, MAP_WORKERS, "map_task", kind="map")
                 results = resp["results"]
             except Exception as e:
                 job_states[job_id] = "FAILED"
@@ -135,7 +152,7 @@ def process_job(job_id: str, job: JobRequest):
             }
 
             try:
-                resp = assign_split_to_worker(payload, REDUCE_WORKERS, "reduce_task")
+                resp = assign_split_to_worker(payload, REDUCE_WORKERS, "reduce_task",kind="reduce")
                 results = resp["results"]
             except Exception as e:
                 job_states[job_id] = "FAILED"

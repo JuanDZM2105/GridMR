@@ -2,6 +2,9 @@ from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from collections import Counter
 import uvicorn
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 tasks_in_progress = 0
@@ -14,6 +17,7 @@ class MapTask(BaseModel):
 
 @app.post("/map_task")
 async def map_task(task: MapTask):
+    logging.info(f"Recibí el {task.split_id}")
     global tasks_in_progress
     tasks_in_progress += 1
     

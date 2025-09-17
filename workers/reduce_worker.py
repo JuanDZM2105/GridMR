@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Dict, List
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 tasks_in_progress = 0
@@ -13,6 +16,7 @@ class ReduceTask(BaseModel):
 
 @app.post("/reduce_task")
 async def reduce_task(task: ReduceTask):
+    logging.info(f"Recibí el resultado intermedio {task.reduce_id}")
     global tasks_in_progress
     tasks_in_progress += 1  # Incrementa al iniciar la tarea
 
